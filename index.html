@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TransCues — Transparent Object Segmentation | WACV 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,600&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    /* ── Reset ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #f4f5f7;
+      --bg2:        #eceef2;
+      --white:      #ffffff;
+      --glass:      rgba(255,255,255,0.55);
+      --glass2:     rgba(255,255,255,0.75);
+      --border:     rgba(80,120,200,0.14);
+      --border2:    rgba(80,120,200,0.22);
+      --blue:       #2f6de0;
+      --blue-light: #6ea4f5;
+      --teal:       #1cb8b0;
+      --ink:        #1a1e2e;
+      --ink2:       #3d4460;
+      --ink3:       #7a80a0;
+      --serif:      'Cormorant Garamond', Georgia, serif;
+      --sans:       'DM Sans', sans-serif;
+      --mono:       'DM Mono', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-weight: 300;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+    ::selection { background: rgba(47,109,224,.18); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg2); }
+    ::-webkit-scrollbar-thumb { background: var(--blue-light); border-radius: 2px; }
+
+    /* ── Prism bg ───────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 15% 20%, rgba(110,164,245,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 85% 75%, rgba(28,184,176,.10) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 30% at 55% 10%, rgba(190,160,255,.07) 0%, transparent 50%);
+    }
+
+    /* ── Nav ────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .9rem 3rem;
+      backdrop-filter: blur(20px) saturate(1.5);
+      background: rgba(244,245,247,0.82);
+      border-bottom: 1px solid var(--border2);
+    }
+    .nav-logo {
+      font-family: var(--serif); font-size: 1.1rem; font-weight: 600;
+      color: var(--blue); letter-spacing: .02em; font-style: italic;
+    }
+    .nav-links { display: flex; gap: 2rem; }
+    .nav-links a {
+      font-family: var(--mono); font-size: .72rem; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--ink3); text-decoration: none;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--blue); }
+
+    /* ── Hero ───────────────────────────────────────────── */
+    #hero {
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 8rem 2rem 5rem; text-align: center;
+      position: relative; z-index: 1;
+    }
+
+    /* Animated glass prism shapes */
+    .prism-shapes { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    .prism-shapes span {
+      position: absolute; border-radius: 50%;
+      background: linear-gradient(135deg, rgba(110,164,245,.18), rgba(28,184,176,.12));
+      border: 1px solid rgba(110,164,245,.2);
+      backdrop-filter: blur(2px);
+      animation: floatSlow 12s ease-in-out infinite;
+    }
+    .prism-shapes span:nth-child(1) { width:320px;height:320px; top:-80px;left:-60px; animation-delay:0s; }
+    .prism-shapes span:nth-child(2) { width:200px;height:200px; top:60%;right:-40px; animation-delay:3s; }
+    .prism-shapes span:nth-child(3) { width:140px;height:140px; bottom:10%;left:10%; animation-delay:6s; }
+    .prism-shapes span:nth-child(4) { width:80px;height:80px;  top:25%;right:18%; animation-delay:2s; border-radius:12px; transform:rotate(30deg); }
+    @keyframes floatSlow {
+      0%,100% { transform: translateY(0) rotate(0deg); opacity:.6; }
+      50%      { transform: translateY(-18px) rotate(8deg); opacity:1; }
+    }
+
+    .venue-tag {
+      display: inline-flex; align-items: center; gap: .5rem;
+      font-family: var(--mono); font-size: .72rem; letter-spacing: .14em;
+      color: var(--blue); border: 1px solid rgba(47,109,224,.35);
+      background: rgba(47,109,224,.07);
+      padding: .28rem 1rem; border-radius: 100px; margin-bottom: 2rem;
+      animation: fadeUp .5s ease both;
+    }
+    .venue-tag::before { content:''; width:7px; height:7px; background:var(--blue); border-radius:50%; }
+
+    h1.hero-title {
+      font-family: var(--serif); font-size: clamp(2rem, 5.5vw, 4rem);
+      font-weight: 600; line-height: 1.15; max-width: 860px;
+      color: var(--ink); margin-bottom: .6rem;
+      animation: fadeUp .6s ease both .1s;
+    }
+    h1.hero-title em { color: var(--blue); font-style: italic; }
+    .method-name {
+      font-family: var(--serif); font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+      font-style: italic; color: var(--ink3); margin-bottom: 2.5rem;
+      animation: fadeUp .6s ease both .15s;
+    }
+    .method-name strong { color: var(--teal); font-style: normal; font-weight: 500; }
+
+    /* Authors */
+    .authors {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem 1.4rem;
+      max-width: 800px; margin-bottom: .7rem;
+      animation: fadeUp .6s ease both .2s;
+    }
+    .author { font-size: .88rem; color: var(--ink2); }
+    .author sup { color: var(--blue); font-size: .7rem; }
+    .affiliations {
+      font-size: .75rem; color: var(--ink3); max-width: 700px;
+      margin-bottom: 2.5rem;
+      animation: fadeUp .6s ease both .25s;
+    }
+
+    /* Highlight strip */
+    .highlight-strip {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem;
+      margin-bottom: 2.5rem; animation: fadeUp .6s ease both .3s;
+    }
+    .hl-item {
+      display: flex; flex-direction: column; align-items: center;
+      background: var(--glass2); backdrop-filter: blur(12px);
+      border: 1px solid var(--border2); border-radius: 10px;
+      padding: .7rem 1.3rem; min-width: 130px;
+    }
+    .hl-val {
+      font-family: var(--serif); font-size: 1.7rem; font-weight: 600;
+      color: var(--blue); line-height: 1;
+    }
+    .hl-label { font-family: var(--mono); font-size: .62rem; color: var(--ink3); letter-spacing: .08em; margin-top: .2rem; }
+
+    /* Buttons */
+    .hero-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: .9rem; animation: fadeUp .6s ease both .35s; }
+    .btn {
+      display: inline-flex; align-items: center; gap: .45rem;
+      padding: .6rem 1.4rem; font-family: var(--mono); font-size: .78rem;
+      letter-spacing: .06em; text-decoration: none; border-radius: 6px;
+      cursor: pointer; transition: all .22s;
+    }
+    .btn svg { width: 15px; height: 15px; }
+    .btn-primary { background: var(--blue); color: #fff; border: 1px solid var(--blue); }
+    .btn-primary:hover { background: #1d58c4; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(47,109,224,.3); }
+    .btn-glass {
+      background: var(--glass2); backdrop-filter: blur(10px);
+      color: var(--blue); border: 1px solid var(--border2);
+    }
+    .btn-glass:hover { background: rgba(47,109,224,.1); transform: translateY(-2px); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    section { position: relative; z-index: 1; }
+    .container { max-width: 1060px; margin: 0 auto; padding: 0 2rem; }
+    .divider { width:100%; height:1px; background: linear-gradient(90deg, transparent, var(--border2), transparent); }
+
+    .section-tag {
+      font-family: var(--mono); font-size: .68rem; letter-spacing: .18em;
+      text-transform: uppercase; color: var(--blue); margin-bottom: .5rem;
+    }
+    .section-title {
+      font-family: var(--serif); font-size: clamp(1.6rem,3vw,2.4rem);
+      font-weight: 600; color: var(--ink); margin-bottom: 1.2rem;
+    }
+
+    /* Glass card */
+    .glass-card {
+      background: var(--glass2); backdrop-filter: blur(16px) saturate(1.4);
+      border: 1px solid var(--border2); border-radius: 12px;
+    }
+
+    /* ── Abstract ───────────────────────────────────────── */
+    #abstract { padding: 6rem 0; }
+    .abstract-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 3.5rem; align-items: start; }
+    .abstract-text {
+      font-family: var(--serif); font-size: 1.08rem; line-height: 1.85; color: var(--ink2);
+    }
+    .abstract-text p + p { margin-top: 1rem; }
+    .keywords-wrap { margin-top: 1.5rem; }
+    .kw-label { font-family: var(--mono); font-size: .65rem; color: var(--ink3); letter-spacing: .12em; margin-bottom: .5rem; }
+    .kw-list { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .kw {
+      font-family: var(--mono); font-size: .7rem; color: var(--blue);
+      background: rgba(47,109,224,.07); border: 1px solid rgba(47,109,224,.2);
+      padding: .2rem .6rem; border-radius: 100px;
+    }
+
+    /* Insight panel */
+    .insight-panel { padding: 1.8rem; border-radius: 12px; position: relative; overflow: hidden; }
+    .insight-panel::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:3px;
+      background: linear-gradient(90deg, var(--blue), var(--teal));
+    }
+    .insight-panel h4 { font-family: var(--mono); font-size: .7rem; color: var(--ink3); letter-spacing: .12em; margin-bottom: 1rem; }
+
+    /* cue pills */
+    .cue-pill {
+      display: flex; align-items: flex-start; gap: 1rem;
+      padding: 1rem; border-radius: 8px; margin-bottom: .8rem;
+      background: rgba(255,255,255,.6); border: 1px solid var(--border);
+    }
+    .cue-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .cue-title { font-size: .88rem; font-weight: 500; color: var(--ink); margin-bottom: .2rem; }
+    .cue-desc { font-size: .78rem; color: var(--ink3); line-height: 1.5; }
+
+    /* ── Method ─────────────────────────────────────────── */
+    #method { padding: 6rem 0; background: var(--bg2); }
+    .method-intro { font-family: var(--serif); font-size: 1.05rem; color: var(--ink3); max-width: 680px; margin-bottom: 3rem; }
+
+    /* Pipeline placeholder */
+    .pipeline-ph-wrap {
+      border-radius: 12px; overflow: hidden; margin-bottom: 3rem;
+      border: 2px dashed rgba(47,109,224,.25);
+      background: rgba(255,255,255,.5); backdrop-filter: blur(8px);
+    }
+
+    /* Module grid */
+    .module-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 1.2rem; }
+    .module-card {
+      padding: 1.5rem; border-radius: 10px;
+      transition: transform .25s, box-shadow .25s;
+    }
+    .module-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(47,109,224,.12); }
+    .module-abbr {
+      display: inline-block; font-family: var(--mono); font-size: .7rem; letter-spacing: .1em;
+      color: var(--white); background: var(--blue); padding: .2rem .55rem; border-radius: 4px;
+      margin-bottom: .7rem;
+    }
+    .module-abbr.teal { background: var(--teal); }
+    .module-name { font-size: .9rem; font-weight: 500; color: var(--ink); margin-bottom: .4rem; }
+    .module-desc { font-size: .78rem; color: var(--ink3); line-height: 1.6; }
+
+    /* ── Results ────────────────────────────────────────── */
+    #results { padding: 6rem 0; }
+    .results-intro { font-family: var(--serif); font-size: 1.05rem; color: var(--ink3); max-width: 680px; margin-bottom: 2.5rem; }
+
+    .tabs { display: flex; gap: .5rem; margin-bottom: 2rem; flex-wrap: wrap; }
+    .tab-btn {
+      font-family: var(--mono); font-size: .72rem; letter-spacing: .07em;
+      padding: .38rem .9rem; border-radius: 100px; cursor: pointer;
+      background: transparent; border: 1px solid var(--border2); color: var(--ink3);
+      transition: all .2s;
+    }
+    .tab-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .tab-btn:hover:not(.active) { border-color: var(--blue); color: var(--blue); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border2); }
+    .res-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    .res-table th {
+      font-family: var(--mono); font-size: .65rem; letter-spacing: .09em;
+      text-transform: uppercase; color: var(--ink3);
+      padding: .75rem 1rem; text-align: left;
+      background: rgba(244,245,247,.9); border-bottom: 1px solid var(--border2);
+    }
+    .res-table td { padding: .6rem 1rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .res-table tr:last-child td { border-bottom: none; }
+    .res-table .ours td { background: rgba(47,109,224,.05); font-weight: 500; }
+    .res-table .ours td:first-child { color: var(--blue); }
+    .res-table .bold { font-weight: 700; color: var(--blue); }
+    .res-table .ul { text-decoration: underline; text-underline-offset: 3px; }
+
+    /* Metric cards */
+    .metric-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 1rem; margin-top: 2.5rem; }
+    .metric-card {
+      padding: 1.4rem 1rem; border-radius: 10px; text-align: center;
+    }
+    .metric-plus { font-family: var(--serif); font-size: 2rem; font-weight: 600; color: var(--blue); line-height: 1; }
+    .metric-ds { font-family: var(--mono); font-size: .62rem; color: var(--ink3); letter-spacing: .08em; margin-top: .3rem; }
+
+    /* ── Qualitative ────────────────────────────────────── */
+    #qualitative { padding: 6rem 0; background: var(--bg2); }
+    .qual-intro { font-family: var(--serif); font-size: 1.05rem; color: var(--ink3); max-width: 680px; margin-bottom: 2.5rem; }
+
+    /* Image placeholder */
+    .img-placeholder {
+      width: 100%; border: 2px dashed rgba(47,109,224,.28); border-radius: 10px;
+      background: rgba(255,255,255,.6); backdrop-filter: blur(8px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: .5rem; cursor: pointer; transition: border-color .2s, background .2s;
+      position: relative; overflow: hidden;
+    }
+    .img-placeholder:hover { border-color: rgba(47,109,224,.6); background: rgba(47,109,224,.04); }
+    .img-placeholder .ph-corner {
+      position: absolute; font-family: var(--mono); font-size: .6rem;
+      color: var(--ink3); letter-spacing: .1em;
+    }
+    .img-placeholder .ph-corner.tl { top: .8rem; left: .9rem; }
+    .img-placeholder .ph-corner.tr { top: .8rem; right: .9rem; }
+    .img-placeholder .ph-icon { font-size: 1.8rem; opacity: .35; }
+    .img-placeholder .ph-title { font-family: var(--mono); font-size: .72rem; letter-spacing: .1em; color: var(--blue); }
+    .img-placeholder .ph-sub { font-family: var(--mono); font-size: .64rem; color: var(--ink3); }
+    .img-placeholder img { width: 100%; height: 100%; object-fit: contain; display: block; border-radius: 8px; }
+
+    /* ── Ablation ───────────────────────────────────────── */
+    #ablation { padding: 6rem 0; }
+    .ablation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+    .ab-card { padding: 1.8rem; border-radius: 12px; }
+    .ab-card h4 { font-family: var(--mono); font-size: .68rem; color: var(--blue); letter-spacing: .12em; margin-bottom: 1.2rem; }
+    .ab-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    .ab-table th {
+      font-family: var(--mono); font-size: .63rem; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--ink3);
+      padding: .4rem .7rem; border-bottom: 1px solid var(--border2); text-align: left;
+    }
+    .ab-table td { padding: .5rem .7rem; border-bottom: 1px solid var(--border); }
+    .ab-table tr:last-child td { border-bottom: none; }
+    .ab-table .best td { color: var(--blue); font-weight: 500; }
+    .ab-table .gain { color: var(--teal); font-size: .75rem; }
+
+    /* ── Citation ───────────────────────────────────────── */
+    #citation { padding: 6rem 0; background: var(--bg2); }
+    .bibtex-wrap { border-radius: 12px; overflow: hidden; border: 1px solid var(--border2); }
+    .bibtex-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .75rem 1.2rem; background: rgba(255,255,255,.7);
+      border-bottom: 1px solid var(--border2);
+    }
+    .bibtex-label { font-family: var(--mono); font-size: .68rem; color: var(--ink3); letter-spacing: .1em; }
+    .copy-btn {
+      font-family: var(--mono); font-size: .68rem; color: var(--blue);
+      background: transparent; border: 1px solid rgba(47,109,224,.35);
+      padding: .2rem .6rem; border-radius: 4px; cursor: pointer; transition: background .2s;
+    }
+    .copy-btn:hover { background: rgba(47,109,224,.08); }
+    .bibtex-code {
+      padding: 1.5rem; font-family: var(--mono); font-size: .76rem;
+      color: var(--ink2); background: rgba(255,255,255,.5);
+      line-height: 1.75; overflow-x: auto; white-space: pre;
+    }
+
+    /* ── Footer ─────────────────────────────────────────── */
+    footer {
+      padding: 3rem 2rem; text-align: center;
+      border-top: 1px solid var(--border2);
+    }
+    footer p { font-family: var(--mono); font-size: .7rem; color: var(--ink3); line-height: 1.9; }
+    footer a { color: var(--blue); text-decoration: none; }
+    footer a:hover { color: var(--teal); }
+
+    /* ── Reveal ─────────────────────────────────────────── */
+    .reveal { opacity: 0; transform: translateY(20px); transition: opacity .65s ease, transform .65s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── Responsive ─────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .abstract-grid { grid-template-columns: 1fr; }
+      .module-grid { grid-template-columns: 1fr 1fr; }
+      .metric-grid { grid-template-columns: repeat(3,1fr); }
+      .ablation-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      nav { padding: .8rem 1.2rem; }
+      .nav-links { gap: 1rem; }
+      .module-grid { grid-template-columns: 1fr; }
+      .metric-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 480px) { .nav-links { display: none; } }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ──────────────────────────────── -->
+<nav>
+  <span class="nav-logo">TransCues</span>
+  <div class="nav-links">
+    <a href="#abstract">Abstract</a>
+    <a href="#method">Method</a>
+    <a href="#results">Results</a>
+    <a href="#qualitative">Visual</a>
+    <a href="#citation">Cite</a>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────── -->
+<section id="hero">
+  <div class="prism-shapes"><span></span><span></span><span></span><span></span></div>
+
+  <div class="venue-tag">WACV 2026</div>
+
+  <h1 class="hero-title">
+    Power of Boundary &amp; Reflection:<br/>
+    <em>Semantic Transparent Object Segmentation</em><br/>
+    with Transparent Cues
+  </h1>
+
+  <p class="method-name">Introducing <strong>TransCues</strong> — Pyramid Vision Transformer with BFE &amp; RFE</p>
+
+  <div class="authors">
+    <span class="author">Tuan-Anh Vu<sup>1</sup></span>
+    <span class="author">Hai Nguyen-Truong<sup>1</sup></span>
+    <span class="author">Ziqiang Zheng<sup>1</sup></span>
+    <span class="author">Binh-Son Hua<sup>2</sup></span>
+    <span class="author">Qing Guo<sup>3</sup></span>
+    <span class="author">Ivor W. Tsang<sup>4</sup></span>
+    <span class="author">Sai-Kit Yeung<sup>1</sup></span>
+  </div>
+
+  <p class="affiliations">
+    <sup>1</sup>HKUST &nbsp;&nbsp; <sup>2</sup>Trinity College Dublin &nbsp;&nbsp;
+    <sup>3</sup>Nankai University &nbsp;&nbsp; <sup>4</sup>CFAR, A*STAR
+  </p>
+
+  <!-- Performance highlights -->
+  <div class="highlight-strip">
+    <div class="hl-item">
+      <span class="hl-val">+4.2%</span>
+      <span class="hl-label">mIoU · Trans10K-v2</span>
+    </div>
+    <div class="hl-item">
+      <span class="hl-val">+5.6%</span>
+      <span class="hl-label">mIoU · MSD</span>
+    </div>
+    <div class="hl-item">
+      <span class="hl-val">+10.1%</span>
+      <span class="hl-label">mIoU · RGBD-Mirror</span>
+    </div>
+    <div class="hl-item">
+      <span class="hl-val">+13.1%</span>
+      <span class="hl-label">mIoU · TROSD</span>
+    </div>
+    <div class="hl-item">
+      <span class="hl-val">+8.3%</span>
+      <span class="hl-label">mIoU · Stanford2D3D</span>
+    </div>
+  </div>
+
+  <div class="hero-btns">
+    <a href="https://openaccess.thecvf.com/content/WACV2026/html/Vu_Power_of_Boundary_and_Reflection_Semantic_Transparent_Object_Segmentation_using_WACV_2026_paper.html" class="btn btn-primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Paper (WACV)
+    </a>
+    <a href="https://github.com/hkust-vgd/TransCues" class="btn btn-glass">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      GitHub
+    </a>
+    <a href="https://arxiv.org/abs/2512.07034" class="btn btn-glass">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      arXiv
+    </a>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Abstract ──────────────────────────── -->
+<section id="abstract">
+  <div class="container">
+    <div class="abstract-grid reveal">
+
+      <div>
+        <p class="section-tag">Abstract</p>
+        <h2 class="section-title">Two cues humans rely on.<br/>One unified framework.</h2>
+        <div class="abstract-text">
+          <p>Glass is a prevalent material in everyday life, yet segmentation methods struggle to distinguish it from opaque materials due to its transparency and reflection. While human perception relies on <em>boundary</em> and <em>reflective-object features</em> to distinguish glass objects, the existing literature has not yet sufficiently captured both properties.</p>
+          <p>We propose <strong>TransCues</strong>, a pyramidal transformer encoder-decoder architecture to segment transparent objects. Our key modules — Boundary Feature Enhancement (BFE) and Reflection Feature Enhancement (RFE) — capture these two cues in a mutually beneficial way.</p>
+          <p>Extensive evaluations show state-of-the-art performance across glass segmentation, mirror segmentation, and generic segmentation benchmarks, demonstrating broad versatility beyond specialized transparent-object methods.</p>
+        </div>
+        <div class="keywords-wrap">
+          <p class="kw-label">Keywords</p>
+          <div class="kw-list">
+            <span class="kw">Transparent Object Segmentation</span>
+            <span class="kw">Glass Detection</span>
+            <span class="kw">Mirror Segmentation</span>
+            <span class="kw">Pyramid Vision Transformer</span>
+            <span class="kw">Boundary Features</span>
+            <span class="kw">Reflection Cues</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="glass-card insight-panel">
+          <h4>CORE INSIGHT — TWO VISUAL CUES</h4>
+
+          <div class="cue-pill">
+            <div class="cue-icon">🔲</div>
+            <div>
+              <p class="cue-title">Boundary Cue (Geometric)</p>
+              <p class="cue-desc">Glass objects exhibit high-contrast edges. The BFE module learns multi-scale boundary features via parallel convolution blocks (1×1 to 9×9 kernels), supervised by a Sobel-based boundary loss that measures gradient alignment with ground truth.</p>
+            </div>
+          </div>
+
+          <div class="cue-pill">
+            <div class="cue-icon">🔮</div>
+            <div>
+              <p class="cue-title">Reflection Cue (Appearance)</p>
+              <p class="cue-desc">Reflections on glass surfaces provide localised visual signals. The RFE module employs a convolution-deconvolution U-Net to capture and enhance reflection features, distinguishing glass from non-glass regions without requiring specialist sensors.</p>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:1rem;">
+            <div style="background:rgba(47,109,224,.06);border:1px solid rgba(47,109,224,.15);border-radius:8px;padding:.9rem;text-align:center;">
+              <div style="font-family:var(--serif);font-size:1.6rem;color:var(--blue);font-weight:600;">79.3%</div>
+              <div style="font-family:var(--mono);font-size:.62rem;color:var(--ink3);">mIoU · Trans10K-v2</div>
+            </div>
+            <div style="background:rgba(28,184,176,.06);border:1px solid rgba(28,184,176,.2);border-radius:8px;padding:.9rem;text-align:center;">
+              <div style="font-family:var(--serif);font-size:1.6rem;color:var(--teal);font-weight:600;">91.0%</div>
+              <div style="font-family:var(--mono);font-size:.62rem;color:var(--ink3);">IoU · MSD</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Method ────────────────────────────── -->
+<section id="method">
+  <div class="container">
+    <p class="section-tag reveal">Method</p>
+    <h2 class="section-title reveal">TransCues Architecture</h2>
+    <p class="method-intro reveal">An encoder-decoder pyramid transformer where BFE and RFE modules are placed at the end of the decoder — empirically the optimal placement — to capture boundary then reflection cues in sequence before final MLP prediction.</p>
+
+    <!-- Pipeline placeholder -->
+    <div class="pipeline-ph-wrap reveal">
+      <img src="assets/pipeline.png" alt="TransCues pipeline" style="width:100%;display:block;border-radius:10px;"/>
+    </div>
+
+    <div class="module-grid">
+      <div class="module-card glass-card reveal">
+        <span class="module-abbr">FEM</span>
+        <p class="module-name">Feature Extraction Module</p>
+        <p class="module-desc">PVT-based encoder that captures multi-scale long-range dependencies. Four stages output feature maps at 1/4, 1/8, 1/16, and 1/32 resolution.</p>
+      </div>
+      <div class="module-card glass-card reveal">
+        <span class="module-abbr">FPM</span>
+        <p class="module-name">Feature Parsing Module</p>
+        <p class="module-desc">Lightweight decoder alternative to FEM. Captures detailed-to-abstract representations of transparent objects across C1–C4 with minimal parameters.</p>
+      </div>
+      <div class="module-card glass-card reveal">
+        <span class="module-abbr">BFE</span>
+        <p class="module-name">Boundary Feature Enhancement</p>
+        <p class="module-desc">Parallel convolution blocks (1×1 to 9×9) fused via an ASPP-inspired fusion module. Supervised by a Sobel-based boundary loss on gradient alignment.</p>
+      </div>
+      <div class="module-card glass-card reveal">
+        <span class="module-abbr teal">RFE</span>
+        <p class="module-name">Reflection Feature Enhancement</p>
+        <p class="module-desc">Conv-deconv U-Net that detects localised reflections. Uses pseudo ground-truth for reflective categories (windows, cups, bottles) for supervision.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Results ───────────────────────────── -->
+<section id="results">
+  <div class="container">
+    <p class="section-tag reveal">Experiments</p>
+    <h2 class="section-title reveal">Quantitative Results</h2>
+    <p class="results-intro reveal">TransCues outperforms the state-of-the-art across all three tasks — glass, mirror, and generic segmentation — using only RGB input, without depth or polarization data.</p>
+
+    <div class="tabs reveal">
+      <button class="tab-btn active" onclick="switchTab('glass', event)">Glass — Trans10K-v2</button>
+      <button class="tab-btn" onclick="switchTab('mirror', event)">Mirror — MSD/PMD/RGBD</button>
+      <button class="tab-btn" onclick="switchTab('generic', event)">Generic — TROSD/Stanford</button>
+      <button class="tab-btn" onclick="switchTab('binary', event)">Binary Glass</button>
+    </div>
+
+    <!-- Glass -->
+    <div id="tab-glass" class="tab-panel active reveal">
+      <div class="table-wrap">
+        <table class="res-table">
+          <thead><tr><th>Method</th><th>GFLOPs ↓</th><th>MParams ↓</th><th>ACC ↑</th><th>mIoU ↑</th></tr></thead>
+          <tbody>
+            <tr><td>Trans4Trans-T</td><td>10.45</td><td>—</td><td>93.23</td><td>68.63</td></tr>
+            <tr class="ours"><td>Ours-T</td><td>10.50</td><td>12.72</td><td class="bold">93.52</td><td class="bold">69.53</td></tr>
+            <tr><td>Trans4Trans-S</td><td>19.92</td><td>—</td><td>94.57</td><td>74.15</td></tr>
+            <tr class="ours"><td>Ours-S</td><td>20.00</td><td>23.98</td><td class="bold">94.83</td><td class="bold">75.32</td></tr>
+            <tr class="ours"><td>Ours-B1</td><td>21.29</td><td>14.87</td><td class="bold">95.37</td><td class="bold">77.05</td></tr>
+            <tr><td>Trans4Trans-M</td><td>34.38</td><td>—</td><td>95.01</td><td>75.14</td></tr>
+            <tr><td>DenseASPP</td><td>36.20</td><td>29.09</td><td>90.86</td><td>63.01</td></tr>
+            <tr class="ours"><td>Ours-B2</td><td>37.03</td><td>27.59</td><td class="bold">95.92</td><td class="bold">79.29</td></tr>
+            <tr><td>Trans2Seg</td><td>49.03</td><td>56.20</td><td>94.14</td><td>72.15</td></tr>
+            <tr class="ours"><td>Ours-B5</td><td>154.37</td><td>106.19</td><td class="bold">96.93</td><td class="bold">81.37</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Mirror -->
+    <div id="tab-mirror" class="tab-panel reveal">
+      <div class="table-wrap">
+        <table class="res-table">
+          <thead><tr><th>Method</th><th>Backbone</th><th>MSD IoU ↑</th><th>MSD Fβ ↑</th><th>MSD MAE ↓</th><th>RGBD-M IoU ↑</th><th>PMD IoU ↑</th></tr></thead>
+          <tbody>
+            <tr><td>SANet</td><td>ResNeXt101</td><td>79.85</td><td>0.879</td><td>0.054</td><td>74.99</td><td>66.84</td></tr>
+            <tr><td>VCNet</td><td>ResNeXt101</td><td>80.08</td><td>0.898</td><td>0.044</td><td>73.01</td><td>64.02</td></tr>
+            <tr><td>SATNet</td><td>Swin-S</td><td>85.41</td><td>0.922</td><td>0.033</td><td>78.42</td><td>69.38</td></tr>
+            <tr><td>HetNet</td><td>—</td><td>82.80</td><td>0.906</td><td>0.043</td><td>—</td><td>69.00</td></tr>
+            <tr class="ours"><td>Ours-B3</td><td>PVTv2-B3</td><td class="bold">91.04</td><td class="bold">0.953</td><td class="bold">0.028</td><td class="bold">88.52</td><td class="bold">69.61</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Generic -->
+    <div id="tab-generic" class="tab-panel reveal">
+      <div class="table-wrap">
+        <table class="res-table">
+          <thead><tr><th>Method</th><th>Input</th><th>TROSD IoU ↑</th><th>TROSD mIoU ↑</th><th>S2D3D mIoU ↑</th></tr></thead>
+          <tbody>
+            <tr><td>TransLab</td><td>RGB</td><td>42.57</td><td>50.72</td><td>—</td></tr>
+            <tr><td>DANet</td><td>RGB</td><td>42.76</td><td>54.39</td><td>—</td></tr>
+            <tr><td>TROSNet</td><td>RGB</td><td>48.75</td><td>48.56</td><td>—</td></tr>
+            <tr><td>Trans4Trans-M</td><td>RGB</td><td>—</td><td>—</td><td>45.73</td></tr>
+            <tr class="ours"><td>Ours-B2/B3</td><td>RGB</td><td class="bold">67.25</td><td class="bold">67.23</td><td class="bold">53.98</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:.77rem;color:var(--ink3);margin-top:.7rem;font-family:var(--mono);">
+        ↗ +18.5% mIoU over TROSNet on TROSD, without using depth input.
+      </p>
+    </div>
+
+    <!-- Binary glass -->
+    <div id="tab-binary" class="tab-panel reveal">
+      <div class="table-wrap">
+        <table class="res-table">
+          <thead><tr><th>Method</th><th>Backbone</th><th>GFLOPs ↓</th><th>RGB-P mIoU ↑</th><th>GSD-S mIoU ↑</th></tr></thead>
+          <tbody>
+            <tr><td>SegFormer</td><td>MiT-B5</td><td>70.2</td><td>78.4</td><td>54.7</td></tr>
+            <tr><td>GSD</td><td>ResNeXt-101</td><td>92.7</td><td>78.1</td><td>72.1</td></tr>
+            <tr><td>SETR</td><td>ViT-Large</td><td>240.1</td><td>77.6</td><td>56.7</td></tr>
+            <tr><td>GDNet</td><td>ResNeXt-101</td><td>271.5</td><td>77.6</td><td>52.9</td></tr>
+            <tr class="ours"><td>Ours-B4</td><td>PVTv2-B4</td><td>79.3</td><td class="bold">82.1</td><td class="bold">74.1</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Metric cards -->
+    <div class="metric-grid reveal">
+      <div class="metric-card glass-card">
+        <div class="metric-plus">+4.2%</div>
+        <div class="metric-ds">mIoU · Trans10K-v2</div>
+      </div>
+      <div class="metric-card glass-card">
+        <div class="metric-plus">+5.6%</div>
+        <div class="metric-ds">mIoU · MSD</div>
+      </div>
+      <div class="metric-card glass-card">
+        <div class="metric-plus">+10.1%</div>
+        <div class="metric-ds">mIoU · RGBD-Mirror</div>
+      </div>
+      <div class="metric-card glass-card">
+        <div class="metric-plus">+13.1%</div>
+        <div class="metric-ds">mIoU · TROSD</div>
+      </div>
+      <div class="metric-card glass-card">
+        <div class="metric-plus">+8.3%</div>
+        <div class="metric-ds">mIoU · Stanford2D3D</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Qualitative ───────────────────────── -->
+<section id="qualitative">
+  <div class="container">
+    <p class="section-tag reveal">Qualitative Results</p>
+    <h2 class="section-title reveal">Visual Comparisons</h2>
+    <p class="qual-intro reveal">TransCues accurately identifies glass and mirror regions of diverse dimensions and morphologies, differentiating them from look-alike non-glass regions. Our boundary and reflection modules reduce both over-detection and under-detection errors common in prior work.</p>
+
+    <!-- Fig 4: Glass segmentation -->
+    <div style="margin-bottom:2.5rem;" class="reveal">
+      <p style="font-family:var(--mono);font-size:.68rem;color:var(--ink3);letter-spacing:.1em;margin-bottom:.8rem;">
+        FIGURE 4 &nbsp;·&nbsp; Glass segmentation comparison on Trans10K-v2, RGB-P, GSD-S
+        <span style="font-size:.62rem;">(Input / GT / Trans2Seg / Trans4Trans / Ours)</span>
+      </p>
+      <img src="assets/pipeline.png" alt="Glass Segmentation Comparison" style="width:100%;display:block;border-radius:10px;"/>
+    </div>
+
+    <!-- Fig 5: Mirror segmentation -->
+    <div style="margin-bottom:2.5rem;" class="reveal">
+      <p style="font-family:var(--mono);font-size:.68rem;color:var(--ink3);letter-spacing:.1em;margin-bottom:.8rem;">
+        FIGURE 5 &nbsp;·&nbsp; Mirror segmentation comparison on MSD, PMD, RGBD-Mirror
+        <span style="font-size:.62rem;">(Input / GT / SANet / VCNet / SATNet / Ours)</span>
+      </p>
+      <img src="assets/pipeline.png" alt="Mirror Segmentation Comparison" style="width:100%;display:block;border-radius:10px;"/>
+    </div>
+
+    <!-- Fig 6: Failure cases -->
+    <div class="reveal">
+      <p style="font-family:var(--mono);font-size:.68rem;color:var(--ink3);letter-spacing:.1em;margin-bottom:.8rem;">
+        FIGURE 6 &nbsp;·&nbsp; Failure cases on Trans10K-v2
+      </p>
+      <img src="assets/pipeline.png" alt="Failure cases" style="width:100%;display:block;border-radius:10px;"/>
+      <div style="margin-top:1.2rem;padding:1.2rem 1.5rem;background:rgba(255,255,255,.6);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:8px;font-size:.82rem;color:var(--ink3);">
+        <span style="font-family:var(--mono);font-size:.65rem;color:var(--ink3);letter-spacing:.1em;">LIMITATIONS</span><br/>
+        Our method may confuse objects with glass-like properties (e.g. door frames with reflections/distortion) or struggle when glass lacks sufficient reflective signal. Boundary shapes are generally preserved even under misclassification.
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Ablation ──────────────────────────── -->
+<section id="ablation">
+  <div class="container">
+    <p class="section-tag reveal">Ablation</p>
+    <h2 class="section-title reveal">Module &amp; Design Validation</h2>
+
+    <div class="ablation-grid">
+      <div class="ab-card glass-card reveal">
+        <h4>EFFECTIVENESS OF MODULES · TRANS10K-V2</h4>
+        <table class="ab-table">
+          <thead><tr><th>Backbone</th><th>BFE</th><th>RFE</th><th>S2D3D</th><th>Trans10K</th></tr></thead>
+          <tbody>
+            <tr><td>PVTv1-T</td><td>—</td><td>—</td><td>45.19</td><td>69.44</td></tr>
+            <tr><td>PVTv2-B1</td><td>—</td><td>—</td><td>46.79</td><td>70.49</td></tr>
+            <tr><td>PVTv2-B1</td><td>—</td><td>✓</td><td>48.12</td><td><span class="gain">+3.2</span> 72.65</td></tr>
+            <tr><td>PVTv2-B1</td><td>✓</td><td>—</td><td>50.22</td><td><span class="gain">+5.5</span> 74.89</td></tr>
+            <tr class="best"><td>PVTv2-B1</td><td>✓</td><td>✓</td><td>51.55</td><td><span class="gain">+7.6</span> 77.05</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:.75rem;color:var(--ink3);margin-top:.8rem;font-family:var(--mono);">BFE alone yields greater gains than RFE alone, confirming boundary cues as the primary discriminative signal for generic scenes too.</p>
+      </div>
+
+      <div class="ab-card glass-card reveal">
+        <h4>PLACEMENT OF MODULES · TRANS10K-V2</h4>
+        <table class="ab-table">
+          <thead><tr><th>Variant</th><th>MParams</th><th>mIoU ↑</th></tr></thead>
+          <tbody>
+            <tr><td>Baseline (no modules)</td><td>13.89</td><td>70.49</td></tr>
+            <tr><td>+ RFE→BFE in Encoder</td><td>48.98</td><td>73.54</td></tr>
+            <tr><td>+ BFE→RFE in Encoder</td><td>48.99</td><td>74.12</td></tr>
+            <tr><td>+ RFE→BFE in Decoder</td><td>14.90</td><td>75.11</td></tr>
+            <tr><td>+ BFE ∥ RFE in Decoder</td><td>14.91</td><td>75.44</td></tr>
+            <tr class="best"><td>TransCues (BFE→RFE Decoder)</td><td>14.87</td><td>77.05</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:.75rem;color:var(--ink3);margin-top:.8rem;font-family:var(--mono);">Decoder placement is significantly more parameter-efficient than encoder placement (14.87M vs 48.99M) while achieving the best performance.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Citation ──────────────────────────── -->
+<section id="citation">
+  <div class="container">
+    <p class="section-tag reveal">Citation</p>
+    <h2 class="section-title reveal">How to Cite</h2>
+
+    <div class="bibtex-wrap glass-card reveal">
+      <div class="bibtex-head">
+        <span class="bibtex-label">BIBTEX</span>
+        <button class="copy-btn" onclick="copyBib()">Copy</button>
+      </div>
+      <div class="bibtex-code" id="bibtex-content">@inproceedings{vu2026transcues,
+  title     = {Power of Boundary and Reflection: Semantic Transparent
+               Object Segmentation using Pyramid Vision Transformer
+               with Transparent Cues},
+  author    = {Vu, Tuan-Anh and Nguyen-Truong, Hai and Zheng, Ziqiang
+               and Hua, Binh-Son and Guo, Qing and Tsang, Ivor W.
+               and Yeung, Sai-Kit},
+  booktitle = {Proceedings of the IEEE/CVF Winter Conference on
+               Applications of Computer Vision (WACV)},
+  year      = {2026}
+}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.2rem;margin-top:2rem;" class="reveal">
+      <div class="glass-card" style="padding:1.2rem;">
+        <p style="font-family:var(--mono);font-size:.65rem;color:var(--ink3);letter-spacing:.12em;margin-bottom:.5rem;">BACKBONE</p>
+        <p style="font-size:.82rem;color:var(--ink2);">PVTv1 / PVTv2 (Tiny to B5 variants)</p>
+      </div>
+      <div class="glass-card" style="padding:1.2rem;">
+        <p style="font-family:var(--mono);font-size:.65rem;color:var(--ink3);letter-spacing:.12em;margin-bottom:.5rem;">TRAINING</p>
+        <p style="font-size:.82rem;color:var(--ink2);">AdamW · lr 1e-4 · Batch 8 · 1× RTX 3090</p>
+      </div>
+      <div class="glass-card" style="padding:1.2rem;">
+        <p style="font-family:var(--mono);font-size:.65rem;color:var(--ink3);letter-spacing:.12em;margin-bottom:.5rem;">DATASETS</p>
+        <p style="font-size:.82rem;color:var(--ink2);">Trans10K-v2 · MSD · PMD · RGBD-Mirror · TROSD · Stanford2D3D · RGB-P · GSD-S</p>
+      </div>
+      <div class="glass-card" style="padding:1.2rem;">
+        <p style="font-family:var(--mono);font-size:.65rem;color:var(--ink3);letter-spacing:.12em;margin-bottom:.5rem;">INPUT</p>
+        <p style="font-size:.82rem;color:var(--ink2);">RGB only — no depth, no polarization</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Footer ───────────────────────────── -->
+<footer>
+  <p>
+    <strong style="color:var(--blue)">TransCues</strong> — Semantic Transparent Object Segmentation with Pyramid Vision Transformer<br/>
+    Accepted at <a href="#">WACV 2026</a><br/><br/>
+    <a href="https://arxiv.org/abs/2512.07034" target="_blank" rel="noopener">arXiv:2512.07034</a> &nbsp;·&nbsp;
+    HKUST · Trinity College Dublin · Nankai University · CFAR A*STAR<br/>
+    <span style="color:var(--ink3);font-size:.62rem;">© 2026 The Authors.</span>
+  </p>
+</footer>
+
+<script>
+  /* Image placeholder preview */
+  function previewImg(inputId, phId) {
+    const file = document.getElementById(inputId).files[0];
+    if (!file) return;
+    const ph = document.getElementById(phId);
+    ph.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="preview"/>`;
+    ph.style.minHeight = 'unset';
+    ph.style.cursor = 'default';
+    ph.onclick = null;
+  }
+
+  /* Tab switching */
+  function switchTab(id, e) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    e.target.classList.add('active');
+  }
+
+  /* BibTeX copy */
+  function copyBib() {
+    navigator.clipboard.writeText(document.getElementById('bibtex-content').innerText).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    });
+  }
+
+  /* Scroll reveal */
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>
